@@ -1,8 +1,8 @@
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
 import { Fragment } from "@/generated/prisma";
-import { ExternalLinkIcon, RefreshCcwIcon } from "lucide-react";
-import { useState } from "react";
+import { ExternalLinkIcon, RefreshCcwIcon, AlertTriangleIcon } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 
 interface Props {
   data: Fragment;
@@ -11,16 +11,59 @@ interface Props {
 export function FragmentWeb({ data }: Props) {
   const [fragmentKey, setFragmentKey] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const onRefresh = () => {
     setFragmentKey((prev) => prev + 1);
+    setIsLoading(true);
+    setHasError(false);
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(data.sandboxUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    // Use a fallback approach since clipboard API may be blocked in iframe context
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(data.sandboxUrl).catch(() => {
+          // Fallback: create a temporary input element
+          const input = document.createElement("input");
+          input.value = data.sandboxUrl;
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand("copy");
+          document.body.removeChild(input);
+        });
+      } else {
+        // Fallback for older browsers
+        const input = document.createElement("input");
+        input.value = data.sandboxUrl;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.warn("Copy failed:", e);
+    }
   };
+
+  const handleIframeLoad = () => {
+    setIsLoading(false);
+  };
+
+  const handleIframeError = () => {
+    setIsLoading(false);
+    setHasError(true);
+  };
+
+  useEffect(() => {
+    // Reset state when sandboxUrl changes
+    setIsLoading(true);
+    setHasError(false);
+  }, [data.sandboxUrl]);
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -55,13 +98,64 @@ export function FragmentWeb({ data }: Props) {
           </Button>
         </Hint>
       </div>
-      <iframe
-        key={fragmentKey}
-        className="h-full w-full"
-        sandbox="allow-forms allow-scripts allow-same-origin"
-        loading="lazy"
-        src={data.sandboxUrl}
-      />
+
+      {/* Loading state */}
+      {isLoading && !hasError && (
+        <div className="h-full w-full flex items-center justify-center bg-muted/30">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
+            <p className="text-sm text-muted-foreground">Loading preview...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error state - sandbox not found/expired */}
+      {hasError && (
+        <div className="h-full w-full flex items-center justify-center bg-muted/30">
+          <div className="flex flex-col items-center gap-4 max-w-sm text-center p-6">
+            <div className="p-4 rounded-full bg-destructive/10">
+              <AlertTriangleIcon className="w-10 h-10 text-destructive" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-1">Preview Unavailable</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                The sandbox preview has expired or is no longer available. This happens when the preview
+                environment shuts down after some time.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={onRefresh} variant="default">
+                <RefreshCcwIcon className="w-4 h-4 mr-2" />
+                Try Again
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!data.sandboxUrl) return;
+                  window.open(data.sandboxUrl, "_blank");
+                }}
+                variant="outline"
+              >
+                <ExternalLinkIcon className="w-4 h-4 mr-2" />
+                Open Anyway
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* iframe - only show when not error */}
+      {!hasError && (
+        <iframe
+          key={fragmentKey}
+          ref={iframeRef}
+          className="h-full w-full"
+          sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
+          loading="lazy"
+          src={data.sandboxUrl}
+          onLoad={handleIframeLoad}
+          onError={handleIframeError}
+        />
+      )}
     </div>
   );
 }

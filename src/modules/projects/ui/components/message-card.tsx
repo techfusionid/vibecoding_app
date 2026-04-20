@@ -70,6 +70,22 @@ const AssistantMessage = ({
   onFragmentClick,
   type,
 }: AssistantMessageProps) => {
+  // Format content for display - handle bullet points and newlines
+  const formattedContent = content
+    .split('\n')
+    .map((line, i) => {
+      // Indent bullet points for visual hierarchy
+      if (line.match(/^[-*]\s/)) {
+        return <span key={i} className="pl-4 block">{line}</span>;
+      }
+      // Handle numbered lists
+      if (line.match(/^\d+\.\s/)) {
+        return <span key={i} className="pl-4 block">{line}</span>;
+      }
+      // Regular paragraphs
+      return <span key={i} className="block">{line}</span>;
+    });
+
   return (
     <div
       className={cn(
@@ -91,7 +107,9 @@ const AssistantMessage = ({
         </span>
       </div>
       <div className="pl-8.5 flex flex-col gap-y-4">
-        <span>{content}</span>
+        <div className="text-sm whitespace-pre-wrap leading-relaxed">
+          {formattedContent}
+        </div>
         {fragment && type === "RESULT" && (
           <FragmentCard
             fragment={fragment}
