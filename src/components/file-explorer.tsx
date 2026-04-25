@@ -112,7 +112,17 @@ export const FileExplorer = ({ files }: FileExplorerProps) => {
 
   const handleCopy = () => {
     if (selectedFile) {
-      navigator.clipboard.writeText(files[selectedFile]);
+      try {
+        navigator.clipboard.writeText(files[selectedFile]);
+      } catch {
+        // Fallback for environments where clipboard API is blocked
+        const input = document.createElement("input");
+        input.value = files[selectedFile];
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
       setCopied(true);
       setTimeout(() => {
         setCopied(false);

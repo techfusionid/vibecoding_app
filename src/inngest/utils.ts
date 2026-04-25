@@ -7,35 +7,57 @@ export async function getSandbox(sandboxId: string) {
 }
 
 export function extractTaskSummary(result: AgentResult) {
-  const lastAssistantTextMessageIndex = result.output.findLastIndex(
-    (message) => message.role === "assistant",
+  // Try result.output first (standard AgentResult structure)
+  if (result?.output && Array.isArray(result.output)) {
+    return extractFromMessages(result.output);
+  }
+
+  // Fallback: try result.history (what @inngest/agent-kit Network.run() actually returns)
+  if (result?.history && Array.isArray(result.history)) {
+    console.log("[extractTaskSummary] Using result.history, length:", result.history.length);
+    return extractFromMessages(result.history);
+  }
+
+  // Fallback: try result.state.data.summary directly (set by lifecycle hook)
+  if (result?.state?.data?.summary) {
+    return result.state.data.summary;
+  }
+
+  console.warn("[extractTaskSummary] No output, history, or summary found in result");
+  return undefined;
+}
+
+function extractFromMessages(messages: any[]): string | undefined {
+  if (!messages || messages.length === 0) return undefined;
+
+  const lastAssistantTextMessageIndex = messages.findLastIndex(
+    (message) => message?.role === "assistant",
   );
 
-  const message = result.output[lastAssistantTextMessageIndex] as
-    | TextMessage
-    | undefined;
+  if (lastAssistantTextMessageIndex === -1) {
+    console.warn("[extractTaskSummary] No assistant message found");
+    return undefined;
+  }
 
+  const message = messages[lastAssistantTextMessageIndex] as TextMessage | undefined;
   if (!message?.content) return undefined;
 
-  // Handle array of content blocks
   let rawContent: string;
   if (typeof message.content === "string") {
     rawContent = message.content;
   } else {
-    // Filter out thinking/reflection blocks and join only text blocks
-    rawContent = message.content
-      .filter((c) => "text" in c) // Only keep content blocks with text property
+    rawContent = (message.content as any[])
+      .filter((c) => "text" in c)
       .map((c) => c.text)
       .join("");
   }
 
   if (!rawContent) return undefined;
 
-  // Remove <task_summary>...</task_summary> tags and their content
   const cleanedContent = rawContent
     .replace(/<task_summary>[\s\S]*?<\/task_summary>/gi, "")
-    .replace(/<think>[\s\S]*?<\/think>/gi, "") // Remove thinking tags if present
-    .replace(/\n{3,}/g, "\n\n") // Normalize multiple newlines
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 
   return cleanedContent || undefined;

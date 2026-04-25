@@ -13,12 +13,43 @@ export function FragmentWeb({ data }: Props) {
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [serverReady, setServerReady] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Poll sandbox URL until it responds with 200
+  useEffect(() => {
+    if (!data.sandboxUrl) return;
+
+    setServerReady(false);
+    setIsLoading(true);
+
+    const checkServer = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(data.sandboxUrl, {
+          mode: "no-cors",
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        // no-cors returns opaque response, so we treat any network success as ready
+        setServerReady(true);
+      } catch {
+        // still starting up
+      }
+    };
+
+    // Check immediately, then poll every 2s
+    checkServer();
+    const interval = setInterval(checkServer, 2000);
+    return () => clearInterval(interval);
+  }, [data.sandboxUrl]);
 
   const onRefresh = () => {
     setFragmentKey((prev) => prev + 1);
     setIsLoading(true);
     setHasError(false);
+    setServerReady(false);
   };
 
   const handleCopy = () => {
@@ -63,6 +94,7 @@ export function FragmentWeb({ data }: Props) {
     // Reset state when sandboxUrl changes
     setIsLoading(true);
     setHasError(false);
+    setServerReady(false);
   }, [data.sandboxUrl]);
 
   return (
@@ -99,8 +131,8 @@ export function FragmentWeb({ data }: Props) {
         </Hint>
       </div>
 
-      {/* Loading state */}
-      {isLoading && !hasError && (
+      {/* Loading state — wait for server to be ready */}
+      {(!serverReady || isLoading) && !hasError && (
         <div className="h-full w-full flex items-center justify-center bg-muted/30">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
@@ -143,8 +175,8 @@ export function FragmentWeb({ data }: Props) {
         </div>
       )}
 
-      {/* iframe - only show when not error */}
-      {!hasError && (
+      {/* iframe - only show when server is ready and not error */}
+      {serverReady && !hasError && (
         <iframe
           key={fragmentKey}
           ref={iframeRef}

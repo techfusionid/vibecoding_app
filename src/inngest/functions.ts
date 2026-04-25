@@ -103,7 +103,10 @@ export const codeAgentFunction = inngest.createFunction(
               const updatedFiles = context.network?.state.data.files || {};
               const sandbox = await Sandbox.connect(sandboxData.sandboxId);
               for (const file of files) {
-                await sandbox.files.write(file.path, file.content);
+                // Unescape literal \n sequences that AI agents often emit in code strings
+                // These appear as literal backslash+n in the content, not actual newlines
+                const unescapedContent = file.content.replace(/\\n/g, "\n");
+                await sandbox.files.write(file.path, unescapedContent);
                 updatedFiles[file.path] = file.content;
               }
               if (context.network) {
@@ -162,18 +165,39 @@ export const codeAgentFunction = inngest.createFunction(
       },
     });
 
-    const result = await network.run(event.data.value);
+    let result;
+    try {
+      result = await network.run(event.data.value);
+    } catch (err) {
+      console.error("[DEBUG] network.run threw an error:", err);
+      result = { output: [], state: { data: { summary: "", files: {} } } };
+    }
 
-    // Debug: Log the raw result
-    console.log("[DEBUG] Agent result:", JSON.stringify(result, null, 2));
+    // Debug: Log the raw result structure
+    console.log("[DEBUG] Agent result keys:", Object.keys(result || {}));
+    console.log("[DEBUG] Agent result.state:", result?.state ? "exists" : "undefined");
+    console.log("[DEBUG] Agent result.history length:", result?.history?.length);
+    console.log("[DEBUG] Agent result.history sample:", JSON.stringify(result?.history?.slice(0, 2)));
+    console.log("[DEBUG] Agent result.state.data.summary:", result?.state?.data?.summary);
+    console.log("[DEBUG] Agent result.state.data.files keys:", Object.keys(result?.state?.data?.files || {}));
 
-    const isError =
-      !result.state.data.summary ||
-      Object.keys(result.state.data.files || {}).length === 0;
+    // Network.run returns the Network object — summary is in state.data.summary (set by lifecycle hook)
+    const summary = result?.state?.data?.summary ||
+      extractTaskSummary(result as any) ||
+      "";
+    const files = result?.state?.data?.files || {};
+
+    console.log("[DEBUG] Final summary:", summary);
+    console.log("[DEBUG] Final files:", Object.keys(files));
+
+    const isError = !summary || Object.keys(files).length === 0;
+
+    console.log("[DEBUG] isError:", isError, "reason:", !summary ? "no summary" : "no files");
 
     // Save to db
     await step.run("save-result", async () => {
       if (isError) {
+        console.error("[save-result] isError=true — summary:", JSON.stringify(summary), "files:", JSON.stringify(Object.keys(files)));
         return await prisma.message.create({
           data: {
             projectId: event.data.projectId,
@@ -184,17 +208,18 @@ export const codeAgentFunction = inngest.createFunction(
         });
       }
 
+      console.log("[save-result] Saving RESULT — summary:", summary.slice(0, 100), "files:", Object.keys(files));
       return await prisma.message.create({
         data: {
           projectId: event.data.projectId,
-          content: result.state.data.summary,
+          content: summary,
           role: "ASSISTANT",
           type: "RESULT",
           fragment: {
             create: {
               sandboxUrl: sandboxData.sandboxUrl,
               title: "Fragment",
-              files: result.state.data.files,
+              files: files,
             },
           },
         },
@@ -204,8 +229,8 @@ export const codeAgentFunction = inngest.createFunction(
     return {
       url: sandboxData.sandboxUrl,
       title: "Fragment",
-      files: result.state.data.files,
-      summary: result.state.data.summary,
+      files: files,
+      summary: summary,
     };
   },
 );

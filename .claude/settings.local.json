@@ -6,7 +6,8 @@
       "Bash(npx tsc *)",
       "Bash(npm ls *)",
       "Bash(npm view *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "WebFetch(domain:e2b.dev)"
     ]
   }
 }
