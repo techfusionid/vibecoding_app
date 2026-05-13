@@ -18,8 +18,7 @@ interface AgentState {
 }
 
 export const codeAgentFunction = inngest.createFunction(
-  { id: "code-agent" },
-  { event: "code-agent/run" },
+  { id: "code-agent", triggers: [{ event: "code-agent/run" }] },
   async ({ event, step }) => {
     console.log("[DEBUG] E2B_API_KEY exists:", !!process.env.E2B_API_KEY);
     console.log("[DEBUG] E2B_API_KEY length:", process.env.E2B_API_KEY?.length);
@@ -46,7 +45,7 @@ export const codeAgentFunction = inngest.createFunction(
         apiKey: process.env.MINIMAX_API_KEY,
         baseUrl: "https://api.minimax.io/v1",
         defaultParameters: {
-          temperature: 0.1, // Randomness (higher = more random)
+          max_tokens: 8192,
         },
       }),
       tools: [
@@ -103,10 +102,7 @@ export const codeAgentFunction = inngest.createFunction(
               const updatedFiles = context.network?.state.data.files || {};
               const sandbox = await Sandbox.connect(sandboxData.sandboxId);
               for (const file of files) {
-                // Unescape literal \n sequences that AI agents often emit in code strings
-                // These appear as literal backslash+n in the content, not actual newlines
-                const unescapedContent = file.content.replace(/\\n/g, "\n");
-                await sandbox.files.write(file.path, unescapedContent);
+                await sandbox.files.write(file.path, file.content);
                 updatedFiles[file.path] = file.content;
               }
               if (context.network) {
