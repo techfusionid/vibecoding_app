@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  turbopack: {},
   webpack: (config, context) => {
     // Fix rate-limiter-flexible
     if (!context.isServer) {
