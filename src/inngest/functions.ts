@@ -44,9 +44,6 @@ export const codeAgentFunction = inngest.createFunction(
         model: "MiniMax-M2.7",
         apiKey: process.env.MINIMAX_API_KEY,
         baseUrl: "https://api.minimax.io/v1",
-        defaultParameters: {
-          max_tokens: 8192,
-        },
       }),
       tools: [
         createTool({
@@ -172,13 +169,16 @@ export const codeAgentFunction = inngest.createFunction(
     // Debug: Log the raw result structure
     console.log("[DEBUG] Agent result keys:", Object.keys(result || {}));
     console.log("[DEBUG] Agent result.state:", result?.state ? "exists" : "undefined");
-    console.log("[DEBUG] Agent result.history length:", result?.history?.length);
-    console.log("[DEBUG] Agent result.history sample:", JSON.stringify(result?.history?.slice(0, 2)));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    console.log("[DEBUG] Agent result.history length:", (result as any)?.history?.length);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    console.log("[DEBUG] Agent result.history sample:", JSON.stringify((result as any)?.history?.slice(0, 2)));
     console.log("[DEBUG] Agent result.state.data.summary:", result?.state?.data?.summary);
     console.log("[DEBUG] Agent result.state.data.files keys:", Object.keys(result?.state?.data?.files || {}));
 
     // Network.run returns the Network object — summary is in state.data.summary (set by lifecycle hook)
     const summary = result?.state?.data?.summary ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       extractTaskSummary(result as any) ||
       "";
     const files = result?.state?.data?.files || {};

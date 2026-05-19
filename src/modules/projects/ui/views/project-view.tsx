@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FileExplorer } from "@/components/file-explorer";
 import { UserControl } from "@/components/user-control";
-import { auth } from "@clerk/nextjs/server";
 import { useAuth } from "@clerk/nextjs";
 
 interface Props {

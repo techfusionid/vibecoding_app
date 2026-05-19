@@ -27,7 +27,7 @@ export function FragmentWeb({ data }: Props) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(data.sandboxUrl, {
+        await fetch(data.sandboxUrl, {
           mode: "no-cors",
           signal: controller.signal,
         });

@@ -1,9 +1,5 @@
-import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { Suspense, useState } from "react";
-import { MessagesContainer } from "./messages-container";
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Fragment } from "@/generated/prisma";
 import {
   DropdownMenu,
   DropdownMenuContent,

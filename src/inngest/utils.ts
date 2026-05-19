@@ -7,26 +7,30 @@ export async function getSandbox(sandboxId: string) {
 }
 
 export function extractTaskSummary(result: AgentResult) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = result as any;
+
   // Try result.output first (standard AgentResult structure)
   if (result?.output && Array.isArray(result.output)) {
     return extractFromMessages(result.output);
   }
 
   // Fallback: try result.history (what @inngest/agent-kit Network.run() actually returns)
-  if (result?.history && Array.isArray(result.history)) {
-    console.log("[extractTaskSummary] Using result.history, length:", result.history.length);
-    return extractFromMessages(result.history);
+  if (r?.history && Array.isArray(r.history)) {
+    console.log("[extractTaskSummary] Using result.history, length:", r.history.length);
+    return extractFromMessages(r.history);
   }
 
   // Fallback: try result.state.data.summary directly (set by lifecycle hook)
-  if (result?.state?.data?.summary) {
-    return result.state.data.summary;
+  if (r?.state?.data?.summary) {
+    return r.state.data.summary;
   }
 
   console.warn("[extractTaskSummary] No output, history, or summary found in result");
   return undefined;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractFromMessages(messages: any[]): string | undefined {
   if (!messages || messages.length === 0) return undefined;
 
@@ -46,6 +50,7 @@ function extractFromMessages(messages: any[]): string | undefined {
   if (typeof message.content === "string") {
     rawContent = message.content;
   } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rawContent = (message.content as any[])
       .filter((c) => "text" in c)
       .map((c) => c.text)
