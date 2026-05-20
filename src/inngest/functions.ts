@@ -26,9 +26,7 @@ export const codeAgentFunction = inngest.createFunction(
     // Step 1: Buat sandbox SEKALI SAJA di dalam step.run
     const sandboxData = await step.run("get-sandbox-id", async () => {
       const sandbox = await Sandbox.create("vibe-nextjs-test-2", {
-        timeoutMs: 5 * 60 * 1000,
-        // @ts-ignore
-        ram : 2048,
+        timeoutMs: 10 * 60 * 1000, // 10 menit
       });
 
       // Start Next.js server manual
@@ -37,7 +35,7 @@ export const codeAgentFunction = inngest.createFunction(
         { background: true }
       );
 
-      // Tunggu server ready dengan polling
+      // Polling tunggu server ready
       let ready = false;
       for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 3000));
@@ -56,10 +54,12 @@ export const codeAgentFunction = inngest.createFunction(
       }
 
       if (!ready) {
-        // Log untuk debug
         const logs = await sandbox.commands.run("cat /tmp/nextjs.log 2>/dev/null || echo 'no logs'");
         console.error("[E2B] Server not ready. Logs:", logs.stdout);
       }
+
+      // Perpanjang timeout sandbox agar tidak expired saat agent bekerja
+      await sandbox.setTimeout(10 * 60 * 1000); // reset ke 10 menit lagi
 
       const host = sandbox.getHost(3000);
       return {

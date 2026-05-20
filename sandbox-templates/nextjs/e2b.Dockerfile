@@ -9,12 +9,12 @@ WORKDIR /home/user/nextjs-app
 
 RUN npx --yes create-next-app@15.3.3 . --yes
 
-RUN npm install tw-animate-css
+# Install semua dependency yang dibutuhkan
+RUN npm install tw-animate-css tailwind-merge clsx
 
 RUN npx --yes shadcn@2.6.3 init --yes -b neutral --force
 RUN npx --yes shadcn@2.6.3 add --all --yes
 
-# COPY file utils.ts langsung — jangan pakai echo/printf!
 COPY utils.ts /home/user/nextjs-app/lib/utils.ts
 
 RUN mv /home/user/nextjs-app/* /home/user/ && rm -rf /home/user/nextjs-app
