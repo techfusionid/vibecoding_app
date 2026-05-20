@@ -14,7 +14,7 @@ RUN npm install tw-animate-css
 RUN npx --yes shadcn@2.6.3 init --yes -b neutral --force
 RUN npx --yes shadcn@2.6.3 add --all --yes
 
-# Copy utils.ts langsung dari file
+# COPY file utils.ts langsung — jangan pakai echo/printf!
 COPY utils.ts /home/user/nextjs-app/lib/utils.ts
 
 RUN mv /home/user/nextjs-app/* /home/user/ && rm -rf /home/user/nextjs-app
